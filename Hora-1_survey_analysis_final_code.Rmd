@@ -1,0 +1,359 @@
+---
+title: "Hora-1 Raw Material Survey"
+author: "Caleb Chen"
+date: "5/24/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+Loading packages
+```{r}
+library(tidyverse)
+library(tidyr)
+library(spatstat)
+library(here)
+library(readr)
+library(dplyr)
+library(insight)
+library(gridExtra)
+library(lattice)
+library(viridis)
+library(ggsci)
+library(reactable)
+library(shadowtext)
+library(ggrepel)
+```
+#1.0 Loading flake data and calculating surface area and cortical surface area
+```{r}
+final_flake_data = read.csv("C:/Users/caleb/Desktop/Hora-1 R Code and Data/hor-1_cortex_ratio.csv")
+raw_material_survey = read.csv("C:/Users/caleb/Desktop/Hora-1 R Code and Data/raw_material_survey_6.csv")
+
+#calculate cortical surface area in cm^2. Note that I recorded flake dimensions in mm, so I convert those to cm^2)
+surface_area = ((final_flake_data$MaxLength/10)*(final_flake_data$MaxWidth/10))
+cortical_sa = ((final_flake_data$cortex_mp*(final_flake_data$MaxLength/10)*(final_flake_data$MaxWidth/10)))
+
+#calculate total assemblage volume. Volume = mass/quartz density (2.64 from Berman method)
+artifact_volume = ((final_flake_data$Mass/2.64))
+
+#pipe the new cortical_sa and volume columns into the df
+final_flake_data_new <- final_flake_data %>%
+  mutate(surface_area, cortical_sa, artifact_volume)
+```
+
+##1.1 Hora 1 flake statistics
+```{r}
+max(final_flake_data_new$MaxLength[!is.na(final_flake_data_new$MaxLength)])
+min(final_flake_data_new$MaxLength[!is.na(final_flake_data_new$MaxLength)])
+mean(final_flake_data_new$MaxLength[!is.na(final_flake_data_new$MaxLength)])
+median(final_flake_data_new$MaxLength[!is.na(final_flake_data_new$MaxLength)])
+sd(final_flake_data_new$MaxLength[!is.na(final_flake_data_new$MaxLength)])
+```
+
+# 2.0 Calculating Average Cortical Surface Area for all Survey Nodules
+```{r average raw material cortical surface area for all survey nodules}
+#average cortical surface area of modern raw material nodule (in cm^2)
+average_raw_mat_nodule_cortical_sa = mean(raw_material_survey$cortical_surface_area[!is.na(raw_material_survey$cortical_surface_area)])
+round(average_raw_mat_nodule_cortical_sa, 2)
+```
+
+# 3.0 Attribute Counts for All Survey Nodules
+## 3.1 Raw Material Shape Counts
+```{r raw material shape counts}
+ggplot(raw_material_survey)+
+  geom_histogram(mapping = aes(x=shape), stat="count", fill="turquoise") +
+  labs(x="Shape", y="Count")+
+  theme(text = element_text(size = 14))
+
+ggsave("raw_mat_shape.png")
+```
+
+## 3.2 Raw Material Texture Counts
+```{r raw material texture counts}
+ggplot(raw_material_survey) +
+  geom_histogram(mapping = aes(factor(texture, levels=c("coarse","medium","fine"))), stat="count", fill="salmon") +
+  labs(x="Texture", y="Count")+
+  theme(text = element_text(size = 14))
+
+ggsave("raw_mat_texture.png")
+```
+## 3.3 Raw Material Transparency Counts
+```{r raw material transparency counts}
+ggplot(raw_material_survey)+
+  geom_histogram(mapping = aes(x=transparency), stat="count", fill="turquoise") +
+  labs(x="transparency", y="Count")+
+  theme(text = element_text(size = 14))
+
+ggsave("raw_mat_transparency.png")
+```
+
+# 4.0 Cortex Percentages
+```{r raw material nodule cortex percentages}
+ggplot(raw_material_survey) +
+  geom_bar(mapping = aes((x=factor(cortex, levels=c("0","1-9","10-39", "40-59","60-89", "90-99", "100")))), stat="count", fill="salmon") +
+  labs(x="Cortex Percentage", y="Count")+
+  theme(text = element_text(size = 14)) +
+  ggtitle("Survey Raw Material Sample Cortex Percentages")
+table(raw_material_survey$cortex)
+nodule_table= prop.table(table(raw_material_survey$cortex))
+round(nodule_table, 2)
+
+ggsave("raw_mat_cortex_total.png")
+
+raw
+```
+# 5.0 Survey Nodule Attribute Counts per Location
+## 5.1 Survey Nodule Cortex Percentage per Location
+```{r raw material cortex percentage per location}
+
+mean(raw_material_survey$cortex_midpoint)
+median(raw_material_survey$cortex_midpoint)
+sd(raw_material_survey$cortex_midpoint)
+
+raw_material_survey %>%
+  group_by(location) %>%
+  count(cortex) %>%
+  ggplot(aes(x = as.factor(location), y = n, fill = factor(cortex, levels=c("0","1-9","10-39", "40-59","60-89", "90-99", "100")))) +
+  geom_col(position = "fill",colour="black")+
+  scale_fill_jco() +
+  labs(x="location",y="proportion", fill='cortex percentage')+
+  geom_text_repel(aes(label = paste(n)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=3)
+
+ggsave("raw_mat_cortex_facetted.png")
+```
+## 5.2 Survey Nodule Structure Counts per Location
+```{r raw material structure per location}
+raw_material_survey %>%
+  group_by(location) %>%
+  count(structure) %>%
+  ggplot(aes(x = as.factor(location), y = n, fill = structure)) +
+  geom_col(position = "fill", colour="black")+
+  scale_fill_jco() +
+  labs(x="location",y="proportion")+
+  geom_text_repel(aes(label = paste(n)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=3)
+
+ggsave("raw_mat_structure_facetted.png")
+```
+## 5.3 Survey Nodule Shape Counts per Location
+```{r raw material shape per location}
+raw_material_survey %>%
+  group_by(location) %>%
+  count(shape) %>%
+  ggplot(aes(x = as.factor(location), y = n, fill = shape)) +
+  geom_col(position = "fill",colour="black")+
+  scale_fill_jco() +
+  labs(x="location",y="proportion")+
+  geom_text_repel(aes(label = paste(n)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=3)
+
+ggsave("raw_mat_shape_facetted.png")
+```
+## 5.4 Survey Nodule Texture Counts per Location
+```{r raw material texture per location}
+raw_material_survey %>%
+  group_by(location) %>%
+  count(texture) %>%
+  ggplot(aes(x = as.factor(location), y = n, fill = texture)) +
+  geom_col(position = "fill", colour="black")+
+  labs(x="location",y="proportion")+
+  scale_fill_jco() +
+  geom_text_repel(aes(label = paste(n)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=3)
+
+ggsave("raw_mat_texture_facetted.png")
+```
+## 5.5 Survey Nodule Transparency Counts per Location
+```{r transparency per location}
+raw_material_survey %>%
+  group_by(location) %>%
+  count(transparency) %>%
+  ggplot(aes(x = as.factor(location), y = n, fill = transparency)) +
+  geom_col(position = "fill", colour="black")+
+  scale_fill_jco() +
+  labs(x="location",y="proportion")+
+  geom_text_repel(aes(label = paste(n)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=3)
+
+ggsave("raw_mat_transparency.png")
+```
+
+## 5.6 Total Survey Nodule Surface Area per Location
+
+```{r Total raw material surface area per location}
+ggplot(raw_material_survey, aes(x= as.factor(location), y = surface_area)) +
+  geom_boxplot() +
+  labs(x="location", y="surface area (cm^2)")+
+  scale_fill_jco() 
+
+ggsave("raw_mat_surface_area.png")
+```
+##5.7 Survey nodule Surface Area per Location (separated by raw material)
+```{r raw material surface area per location separated by raw material}
+ggplot(raw_material_survey, aes(x= as.factor(location), y = surface_area)) +
+  geom_boxplot() +
+  facet_wrap(vars(transparency))+
+  labs(x="location", y="surface area (cm^2)")+
+  scale_fill_jco() 
+
+ggsave("raw_mat_surface_area_facetted.png")
+```
+## 5.8 Survey Nodule Cortical Surface Area per Location
+```{r raw material cortical surface area per location}
+#I will fix the boxplot axes in the code 
+ggplot(raw_material_survey, aes(x= as.factor(location), y = cortical_surface_area)) +
+  geom_boxplot() +
+  facet_wrap(vars(transparency))+
+  labs(x="location", y="cortical surface area (cm^2)")
+
+raw_mat_csa_anova = aov(cortical_surface_area ~ as.factor(location), data=raw_material_survey)
+summary(raw_mat_csa_anova)
+
+ggsave("raw_mat_csa_per_location.png")
+```
+
+
+# 6.0 Survey Nodule Statistics
+## 6.1 Survey Nodule Cortex Midpoint Statistics
+```{r cortex midpoint value statistics}
+mean(raw_material_survey$cortex_midpoint[!is.na(raw_material_survey$cortex_midpoint)])
+sd(raw_material_survey$cortex_midpoint[!is.na(raw_material_survey$cortex_midpoint)])
+median(raw_material_survey$cortex_midpoint[!is.na(raw_material_survey$cortex_midpoint)])
+```
+## 6.2 Survey Nodule Cortical Surface Area Statistics
+```{r survey nodule cortical surface area statistics}
+mean(raw_material_survey$cortical_surface_area[!is.na(raw_material_survey$cortical_surface_area)])
+sd(raw_material_survey$cortical_surface_area[!is.na(raw_material_survey$cortical_surface_area)])
+median(raw_material_survey$cortical_surface_area[!is.na(raw_material_survey$cortical_surface_area)])
+```
+
+# 7.0 Hora-1 Flake Statistics
+## 7.1 Hora-1 Flake Cortical Surface Area Statistics
+```{r Checking data normality for plotted and sieved crystal and vein quartz cortical surface areas}
+ggplot(final_flake_data_new, aes(y = cortical_sa)) +
+  geom_histogram() +
+  facet_grid(vars(SievedPlotted, Age, RawMaterial))
+```
+
+
+# 8.0 Cortex Ratio Calculations
+## 8.1 Crystal and Vein Quartz Cortex Ratio Calculations
+# Cortex Ratio Calculations
+```{r Cortex Ratio Calculations}
+TP_crystal <- subset(final_flake_data_new, RawMaterial == 'CrystalQuartz'| Age == 'TerminalPleistocene')
+TP_vein <- subset(final_flake_data_new, RawMaterial == 'VeinQuartz'| Age == 'TerminalPleistocene')
+TLGM_crystal <- subset(final_flake_data_new, RawMaterial == 'CrystalQuartz'| Age == 'TerminalLGM')
+TLGM_vein <- subset(final_flake_data_new, RawMaterial == 'VeinQuartz'| Age == 'TerminalLGM')
+  
+TP_crystal_obs = sum(TP_crystal$cortical_sa[!is.na(TP_crystal$cortical_sa)])
+TP_vein_obs = sum(TP_vein$cortical_sa[!is.na(TP_vein$cortical_sa)])
+TLGM_crystal_obs = sum(TLGM_crystal$cortical_sa[!is.na(TLGM_crystal$cortical_sa)])
+TLGM_vein_obs = sum(TLGM_vein$cortical_sa[!is.na(TLGM_vein$cortical_sa)])
+
+#expected cortical surface area for Terminal Pleistocene nodules
+crystal_nodules = subset(raw_material_survey, transparency == 'translucent')
+no_TP_crystal_nodules = (sum(TP_crystal$artifact_volume[!is.na(TP_crystal$artifact_volume)]))/(mean(crystal_nodules$volume[!is.na(crystal_nodules$volume)]))
+no_TLGM_crystal_nodules =(sum(TLGM_crystal$artifact_volume[!is.na(TLGM_crystal$artifact_volume)]))/(mean(crystal_nodules$volume[!is.na(crystal_nodules$volume)]))
+TP_crystal_exp = mean(crystal_nodules$cortical_surface_area[!is.na(crystal_nodules$cortical_surface_area)])*no_TP_crystal_nodules
+TLGM_crystal_exp = mean(crystal_nodules$cortical_surface_area[!is.na(crystal_nodules$cortical_surface_area)])*no_TLGM_crystal_nodules
+
+#expected cortical surface area for vein quartz
+vein_nodules = subset(raw_material_survey, transparency == 'opaque')
+no_TP_vein_nodules = (sum(TP_vein$artifact_volume[!is.na(TP_vein$artifact_volume)]))/(mean(vein_nodules$volume[!is.na(vein_nodules$volume)]))
+no_TLGM_vein_nodules = (sum(TLGM_vein$artifact_volume[!is.na(TLGM_vein$artifact_volume)]))/(mean(vein_nodules$volume[!is.na(vein_nodules$volume)]))
+TP_vein_exp = mean(vein_nodules$cortical_surface_area[!is.na(vein_nodules$cortical_surface_area)])*no_TP_vein_nodules
+TLGM_vein_exp = mean(vein_nodules$cortical_surface_area[!is.na(vein_nodules$cortical_surface_area)])*no_TLGM_vein_nodules
+
+#cortex ratios
+TP_crystal_ratio = TP_crystal_obs/TP_crystal_exp
+TP_vein_ratio = TP_vein_obs/TP_vein_exp
+TLGM_crystal_ratio = TLGM_crystal_obs/TLGM_crystal_exp
+TLGM_vein_ratio = TLGM_vein_obs/TLGM_vein_exp
+
+TP_crystal_ratio
+TP_vein_ratio
+TLGM_crystal_ratio
+TLGM_vein_ratio
+```
+##8.2 ANOVA tests for cortical surface area differences between plotted and sieved lithics
+```{r Hora-1 flake cortical surface area statistics}
+mean(final_flake_data_new$cortical_sa[!is.na(final_flake_data_new$cortical_sa)])
+sd(final_flake_data_new$cortical_sa[!is.na(final_flake_data_new$cortical_sa)])
+median(final_flake_data_new$cortical_sa[!is.na(final_flake_data_new$cortical_sa)])
+
+TLGM_cq_csa_anova = aov(cortical_sa ~ SievedPlotted , data=TLGM_crystal)
+TLGM_vein_csa_anova = aov(cortical_sa ~ SievedPlotted , data=TLGM_vein)
+summary(TLGM_cq_csa_anova)
+summary(TLGM_vein_csa_anova)
+
+ggplot(final_flake_data_new, aes(x= SievedPlotted, y = log(cortical_sa), fill=RawMaterial)) +
+  geom_boxplot() +
+  facet_grid(vars(Age, RawMaterial))+
+  labs(x="sieved/plotted", y="cortical surface area (cm^2)")+
+  theme(text = element_text(size = 9))+
+  scale_fill_jco()
+
+ggsave("HOR-1_flake_csa_plotted_sieved.png")
+```
+
+# 9.0 Cortical Surface Area Plots
+## 9.1 Survey Nodule Cortical Surface Areas per Nodule Attribute
+```{r}
+ggplot(raw_material_survey) +
+  geom_boxplot(mapping = aes(x=shape, y=cortical_surface_area)) +
+  labs(x="shape", y="cortical surface area (cm^2)")+
+  theme(text = element_text(size = 14))
+
+ggsave("cortical_sa.png")
+
+ggplot(raw_material_survey) +
+  geom_boxplot(mapping = aes(x=transparency, y=cortical_surface_area)) +
+  labs(x="transparency", y="cortical surface area (cm^2)")+
+  theme(text = element_text(size = 11))
+
+ggplot(raw_material_survey) +
+  geom_boxplot(mapping = aes(x=transparency, y=surface_area)) + 
+  labs(x="transparency", y="surface area (cm^2)")+
+  theme(text = element_text(size=12))
+
+ggplot(raw_material_survey) +
+  geom_boxplot(mapping = aes(x=transparency, y=volume)) + 
+  labs(x="transparency", y="volume (cm^3)")+
+  theme(text = element_text(size=12))
+```
+
+
+# 13.0 Survey and Artifact Comparison
+```{r transparency raw material and artifact}
+crystallinity = read.csv("C:/Users/caleb/Desktop/MALAPP_raw_material_survey (1)/crystallinity_2.csv")
+ggplot(crystallinity, aes(x=source, y=count, fill=material)) +
+  theme(text = element_text(size = 16)) +
+  geom_bar(position='fill', stat='identity',colour="black")+
+  scale_fill_jco() +
+  labs(x="source", y="proportion") +
+  geom_text_repel(aes(label = paste(count)), 
+                lineheight = 2,
+            fontface = "bold", bg.colour = "white",bg.r = .1, force = 0,
+                position = position_fill(vjust = 0.5), size=5)
+  
+
+ggsave("artifact_vs_survey.png")
+```
+
+
+
+```{r}
+sample = read.csv("C:/Users/caleb/Desktop/MALAPP_raw_material_survey (1)/sample.csv")
+sample_n(sample, 20)
+```
+
